@@ -1,7 +1,6 @@
 name: pure_firestore
 description: Pure dart firestore client
 version: 0.1.0
-author: 강동윤 <kdy1997.dev@gmail.com>
 homepage: https://github.com/kdy1/pure_firestore
 
 environment:
@@ -13,6 +12,7 @@ dependencies:
   cloud_firestore: ^0.13.7
   cloud_firestore_platform_interface: ^1.1.2
   firebase_core: ^0.4.5
+  http: ^0.12.2
   googleapis: ^0.55.0
 
 dev_dependencies:
