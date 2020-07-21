@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:googleapis/firestore/v1.dart';
 import 'package:pure_firestore/pure_firestore.dart';
 import 'package:pure_firestore/src/coll_ref.dart';
