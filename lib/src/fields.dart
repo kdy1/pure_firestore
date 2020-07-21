@@ -75,7 +75,7 @@ Value serializeField(dynamic value) {
   }
 
   if (value is Timestamp) {
-    return Value()..timestampValue = value.toDate().toIso8601String();
+    return Value()..timestampValue = value.toDate().toUtc().toIso8601String();
   }
 
   if (value is GeoPoint) {

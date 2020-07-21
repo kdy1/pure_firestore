@@ -38,6 +38,23 @@ void main() {
         'createdAt': FieldValue.serverTimestamp(),
       });
     });
+
+    test('create complex value', () async {
+      await db.collection('ok').add({
+        'parentId': 'parent-id-1',
+        'title': 'Title',
+        'category': 'extra',
+        'seller': '나',
+        'images': [],
+        'products': [],
+        'sendAt': Timestamp(1595350842, 372682000),
+        'endAt': Timestamp(1595350842, 372620000),
+        'createdAt': FieldValue.serverTimestamp(),
+        'content': '<strong>Foo</strong>',
+        'pm': {'m1': true, 'm2': false},
+        'methods': {'m1': true, 'm2': true}
+      });
+    });
   });
 
   group('Query', () {
