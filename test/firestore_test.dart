@@ -24,6 +24,12 @@ void main() {
     test('create document', () async {
       await db.collection('ok').add({
         'WTF': 'is this',
+        'nested': {
+          'depp': {
+            'ok': true,
+          },
+          'why': "I'm lazy",
+        }
       });
     });
 

@@ -65,10 +65,11 @@ Value serializeField(dynamic value) {
   }
 
   if (value is Map) {
+    print(value.runtimeType);
     final val = MapValue()
       ..fields = value.map((key, value) {
-        final map = MapValue()..fields = serializeFields(value);
-        return MapEntry(key, Value()..mapValue = map);
+        final v = serializeField(value);
+        return MapEntry(key, v);
       });
 
     return Value()..mapValue = val;
@@ -96,7 +97,7 @@ Value serializeField(dynamic value) {
 }
 
 Map<String, Value> serializeFields(Map<String, dynamic> data) {
-  final res = <String, dynamic>{};
+  final res = <String, Value>{};
   for (final entry in data.entries) {
     final v = serializeField(entry.value);
     res.addAll({
