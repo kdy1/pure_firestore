@@ -65,7 +65,6 @@ Value serializeField(dynamic value) {
   }
 
   if (value is Map) {
-    print(value.runtimeType);
     final val = MapValue()
       ..fields = value.map((key, value) {
         final v = serializeField(value);
