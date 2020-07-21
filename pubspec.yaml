@@ -11,6 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   cloud_firestore: ^0.13.7
+  cloud_firestore_platform_interface: ^1.1.2
   firebase_core: ^0.4.5
   googleapis: ^0.55.0
 

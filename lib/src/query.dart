@@ -1,15 +1,21 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:googleapis/firestore/v1.dart';
 import 'package:pure_firestore/pure_firestore.dart';
 import 'package:pure_firestore/src/coll_ref.dart';
+import 'package:pure_firestore/src/doc_ref.dart';
+import 'package:pure_firestore/src/doc_snapshot.dart';
 import 'package:pure_firestore/src/fields.dart';
+import 'package:pure_firestore/src/query_snapshot.dart';
+import 'package:pure_firestore/src/snapshot_metadata.dart';
 
 class PureQuery implements Query {
   @override
   final PureFirestore firestore;
   final String collectionPath;
-  final _inner = RunQueryRequest();
+  final _inner = RunQueryRequest()..structuredQuery = StructuredQuery();
 
   PureQuery(this.firestore, this.collectionPath);
 
@@ -90,7 +96,7 @@ class PureQuery implements Query {
     List<dynamic> whereIn,
     bool isNull,
   }) {
-    final filter = FieldFilter();
+    final filter = FieldFilter()..field = (FieldReference()..fieldPath = field);
     if (isEqualTo != null) {
       filter
         ..op = 'EQUAL'
@@ -121,7 +127,7 @@ class PureQuery implements Query {
         ..value = serializeField(arrayContainsAny);
     } else if (whereIn != null) {
       filter
-        ..op = ''
+        ..op = 'IN'
         ..value = serializeField(whereIn);
     } else if (isNull != null) {
       filter
@@ -129,10 +135,23 @@ class PureQuery implements Query {
         ..value = serializeField(null);
     }
 
-    _inner.structuredQuery.where.compositeFilter.filters ??= [];
+    _inner.structuredQuery.where ??= Filter();
+    if (_inner.structuredQuery.where.fieldFilter == null) {
+      _inner.structuredQuery.where.fieldFilter = filter;
+
+      return this;
+    }
+
+    _inner.structuredQuery.where.compositeFilter ??= CompositeFilter();
+    _inner.structuredQuery.where.compositeFilter.filters ??= <Filter>[
+      Filter()..fieldFilter = _inner.structuredQuery.where.fieldFilter,
+    ];
+    _inner.structuredQuery.where.fieldFilter = null;
     _inner.structuredQuery.where.compositeFilter.filters.add(
       Filter()..fieldFilter = filter,
     );
+
+    return this;
   }
 
   @override
@@ -140,6 +159,8 @@ class PureQuery implements Query {
     dynamic field, {
     bool descending = false,
   }) {
+    _inner.structuredQuery.orderBy ??= [];
+
     _inner.structuredQuery.orderBy.add(
       Order()
         ..field = field
@@ -153,11 +174,40 @@ class PureQuery implements Query {
   Future<QuerySnapshot> getDocuments({
     Source source = Source.serverAndCache,
   }) async {
-    final resp = await firestore.api.projects.databases.documents.runQuery(
-      _inner,
-      '${firestore.docPath}/$collectionPath',
+    final components = collectionPath.split('/');
+    final parentDoc = components.sublist(0, components.length - 1).join('/');
+    _inner.structuredQuery.from = [
+      CollectionSelector()..collectionId = components.last,
+    ];
+    final parent = parentDoc.isEmpty
+        ? firestore.docPath
+        : '${firestore.docPath}/${components.sublist(0, components.length - 1).join('/')}';
+
+    final resp = await firestore.client.post(
+      '${firestore.rootUrl}v1/$parent:runQuery',
+      body: json.encode(_inner.toJson()),
     );
 
-    debugPrint('${resp.toJson()}');
+    final List<dynamic> list = json.decode(resp.body);
+    final qs = list.map((e) => RunQueryResponse.fromJson(e));
+
+    return PureQuerySnapshot(qs.map((ds) {
+      //
+      final data = parseFields(ds.document.fields);
+
+      return PureDocumentSnapshot(
+        data,
+        PureDocumentReference(
+          firestore,
+          ds.document.name.substring(
+            firestore.docPath.length,
+          ),
+        ),
+        PureSnapshotMetadata(
+          isFromCache: false,
+          hasPendingWrites: false,
+        ),
+      );
+    }).toList());
   }
 }

@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore_platform_interface/cloud_firestore_platform_interface.dart';
 import 'package:googleapis/firestore/v1.dart';
+import 'package:pure_firestore/src/field_value.dart';
 
 dynamic parseField(Value v) {
   if (v.nullValue == 'NULL_VALUE') return null;
@@ -105,14 +107,58 @@ Map<String, Value> serializeFields(Map<String, dynamic> data) {
   return res;
 }
 
-DocumentTransform extractSpecialValues(Map<String, dynamic> data) {
-  final tr = DocumentTransform();
-  void visit(String path, dynamic v) {
-    if (v is Map<String, dynamic>) {
-      for (final entry in v.entries) {
+List<FieldTransform> extractSpecialValues(Map<String, dynamic> data) {
+  final transforms = <FieldTransform>[];
+
+  bool visit(String path, dynamic v) {
+    if (v is FieldValue) {
+      // We found a special value
+      final val = FieldValuePlatform.getDelegate(v);
+      if (val is! PureFieldValue) {
+        throw new StateError(
+          'You should call initPureFirestore() to use FieldValues',
+        );
+      }
+
+      if (val is PureFieldValue) {
+        final tr = FieldTransform()..fieldPath = path;
+
+        if (val is ArrayUnionFieldValue) {
+          tr..appendMissingElements = serializeField(val.values) as ArrayValue;
+        } else if (val is IncrementFieldValue) {
+          tr..increment = serializeField(val.value);
+        } else if (val is DeleteFieldValue) {
+        } else if (val is ServerTimestampFieldValue) {
+          tr..setToServerValue = 'REQUEST_TIME';
+        } else if (val is ArrayRemoveFieldValue) {
+          tr..removeAllFromArray = serializeField(val.values) as ArrayValue;
+        }
+
+        transforms.add(tr);
+
+        return true;
       }
     }
+
+    if (v is Map<String, dynamic>) {
+      final removed = <String>[];
+      for (final entry in v.entries) {
+        final key = path.isEmpty ? entry.key : '$path.${entry.key}';
+
+        if (visit(key, entry.value)) {
+          removed.add(entry.key);
+        }
+      }
+      for (final key in removed) {
+        v.remove(key);
+      }
+      return false;
+    }
+
+    return false;
   }
 
   visit('', data);
+
+  return transforms;
 }

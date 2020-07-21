@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:googleapis/firestore/v1.dart';
 import 'package:pure_firestore/pure_firestore.dart';
@@ -29,8 +31,11 @@ class PureCollectionReference extends PureQuery implements CollectionReference {
 
   @override
   Future<DocumentReference> add(Map<String, dynamic> data) async {
-    final transform = extractSpecialValues(data);
+    final transforms = extractSpecialValues(data);
+    final id = makeId(20);
+
     final doc = Document()
+      ..name = '${firestore.docPath}/$path/$id'
       ..fields = data.map(
         (key, value) => MapEntry(
           key,
@@ -40,20 +45,25 @@ class PureCollectionReference extends PureQuery implements CollectionReference {
 
     final req = CommitRequest();
     req.writes = [
-      Write()..update = doc,
-      if (transform != null) Write()..transform = transform,
+      Write()
+        ..update = doc
+        ..updateTransforms = transforms,
     ];
 
-    final result =
-        await firestore.api.projects.databases.documents.createDocument(
-      doc,
-      path.contains('/')
-          ? '${firestore.docPath}/${parent().path}'
-          : '${firestore.docPath}',
-      id,
+    await firestore.api.projects.databases.documents.commit(
+      req,
+      firestore.dbPath,
     );
 
-    final newPath = result.name.substring('${firestore.docPath}'.length);
-    return PureDocumentReference(firestore, newPath);
+    return PureDocumentReference(firestore, '$path/$id');
   }
+}
+
+String makeId(int i) {
+  final rand = Random();
+  final codeUnits = List.generate(i, (index) {
+    return rand.nextInt(33) + 89;
+  });
+
+  return String.fromCharCodes(codeUnits);
 }

@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:googleapis/firestore/v1.dart';
 import 'package:pure_firestore/pure_firestore.dart';
 import 'package:pure_firestore/src/coll_ref.dart';
@@ -78,12 +79,47 @@ class PureDocumentReference implements DocumentReference {
   }
 
   @override
-  Future<Function> setData(Map<String, dynamic> data, {bool merge = false}) {
-    throw new UnimplementedError('DocumentReference.setData()');
+  Future<void> setData(Map<String, dynamic> data, {bool merge = false}) {
+    return _set(
+      data,
+      merge: merge,
+      precondition: null,
+    );
   }
 
   @override
-  Future<Function> updateData(Map<String, dynamic> data) {
-    throw new UnimplementedError('DocumentReference.updateData()');
+  Future<void> updateData(Map<String, dynamic> data) {
+    return _set(
+      data,
+      merge: true,
+      precondition: Precondition()..exists = true,
+    );
+  }
+
+  Future<void> _set(
+    Map<String, dynamic> data, {
+    @required bool merge,
+    @required Precondition precondition,
+  }) async {
+    final transforms = extractSpecialValues(data);
+    final doc = Document()
+      ..name = '${firestore.docPath}/$path'
+      ..fields = data.map(
+        (key, value) => MapEntry(
+          key,
+          serializeField(value),
+        ),
+      );
+
+    final req = CommitRequest();
+    req.writes = [
+      Write()
+        ..currentDocument = precondition
+        ..update = doc
+        ..updateTransforms = transforms,
+    ];
+
+    await firestore.api.projects.databases.documents
+        .commit(req, firestore.dbPath);
   }
 }
